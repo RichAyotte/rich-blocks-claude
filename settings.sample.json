@@ -1,0 +1,25 @@
+{
+  "notify_cmd": "notify-send",
+  "file_ops_allowed": [
+    "$HOME/.claude/",
+    "/tmp/",
+    "./src/",
+    "./tests/",
+    "./target/",
+    "./docs/"
+  ],
+  "shellcheck_exclude": "SC1091,SC2086,SC2046,SC2035",
+  "auto_approve_prefixes": [
+    "cargo clippy",
+    "cargo check",
+    "cargo fmt",
+    "cargo test",
+    "cargo build",
+    "cargo run",
+    "cargo doc",
+    "cargo clean",
+    "cargo update",
+    "cargo tree",
+    "cargo metadata"
+  ]
+}

@@ -1,0 +1,74 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    name: Build ${{ matrix.suffix }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            tool: cargo
+            suffix: linux-x86_64
+          - target: aarch64-unknown-linux-gnu
+            tool: cross
+            suffix: linux-aarch64
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - uses: taiki-e/install-action@cross
+        if: matrix.tool == 'cross'
+
+      - name: Build
+        run: ${{ matrix.tool }} build --release --target ${{ matrix.target }}
+
+      - name: Package
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          cargo_version="$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[0].version')"
+          if [ "$version" != "$cargo_version" ]; then
+            echo "::error::Tag version ($version) does not match Cargo.toml version ($cargo_version)"
+            exit 1
+          fi
+          dir="rich-blocks-claude-${version}-${{ matrix.target }}"
+          mkdir "$dir"
+          cp "target/${{ matrix.target }}/release/rich-blocks-claude" "$dir/"
+          cp LICENSE "$dir/"
+          tar czf "${dir}.tar.gz" "$dir"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: archive-${{ matrix.target }}
+          path: "*.tar.gz"
+
+  release:
+    name: Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: archive-*
+          merge-multiple: true
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes *.tar.gz

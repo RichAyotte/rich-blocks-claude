@@ -1,0 +1,37 @@
+[package]
+name = "rich-blocks-claude"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.87.0"
+description = "Safety and productivity hooks for Claude Code — blocks dangerous commands, protects sensitive files, enforces tool preferences, and provides desktop notifications"
+readme = "README.md"
+keywords = ["claude-code", "hooks", "safety", "security"]
+categories = ["command-line-utilities", "development-tools"]
+license = "MIT"
+authors = ["Richard Ayotte"]
+repository = "https://github.com/RichAyotte/rich-blocks-claude"
+
+[[bin]]
+name = "rich-blocks-claude"
+path = "src/main.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+regex = "1"
+
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/v{ version }/rich-blocks-claude-{ version }-{ target }.tar.gz"
+pkg-fmt = "tgz"
+bin-dir = "rich-blocks-claude-{ version }-{ target }/{ bin }{ binary-ext }"
+
+[lints.clippy]
+pedantic = "warn"
+
+[profile.release]
+lto = true
+strip = true
+codegen-units = 1
+
+[dev-dependencies]
+tempfile = "3.25.0"
