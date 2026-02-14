@@ -43,16 +43,16 @@ jobs:
             echo "::error::Tag version ($version) does not match Cargo.toml version ($cargo_version)"
             exit 1
           fi
-          dir="rich-blocks-claude-${version}-${{ matrix.target }}"
+          dir="rich-blocks-claude-${{ matrix.suffix }}"
           mkdir "$dir"
           cp "target/${{ matrix.target }}/release/rich-blocks-claude" "$dir/"
           cp LICENSE "$dir/"
-          tar czf "${dir}.tar.gz" "$dir"
+          tar cJf "${dir}.tar.xz" "$dir"
 
       - uses: actions/upload-artifact@v4
         with:
           name: archive-${{ matrix.target }}
-          path: "*.tar.gz"
+          path: "*.tar.xz"
 
   release:
     name: Release
@@ -71,4 +71,4 @@ jobs:
       - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes *.tar.gz
+        run: gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes *.tar.xz

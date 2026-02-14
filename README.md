@@ -33,13 +33,17 @@ A hook system that intercepts Claude Code's `PreToolUse`, `PostToolUse`, and `No
 
 ## Installation
 
-**cargo-binstall** (recommended) &mdash; downloads a prebuilt binary from GitHub releases:
+**Install script** (recommended) &mdash; auto-detects architecture and installs to `~/.local/bin`:
 
 ```sh
-cargo binstall rich-blocks-claude
+curl -fsSL https://raw.githubusercontent.com/RichAyotte/rich-blocks-claude/main/install.sh | sh
 ```
 
-**Manual download** &mdash; grab the latest tarball from [GitHub releases](https://github.com/RichAyotte/rich-blocks-claude/releases/latest).
+Set `INSTALL_DIR` to change the install location:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/RichAyotte/rich-blocks-claude/main/install.sh | INSTALL_DIR=/usr/local/bin sh
+```
 
 **Build from source:**
 
@@ -47,13 +51,14 @@ cargo binstall rich-blocks-claude
 cargo install --git https://github.com/RichAyotte/rich-blocks-claude
 ```
 
-Then register the hooks:
+Then register the plugin manually:
 
 ```sh
-rich-blocks-claude install
+claude plugin marketplace add RichAyotte/claude-plugins
+claude plugin install rich-blocks-claude@rich-plugins --scope user
 ```
 
-The `install` command registers the plugin with Claude Code's plugin system, checks for optional dependencies, and creates a default settings file.
+The install script handles this automatically; these commands are only needed for build-from-source installs.
 
 ### Settings file
 

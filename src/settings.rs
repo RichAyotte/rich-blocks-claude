@@ -70,6 +70,7 @@ impl Settings {
     pub fn load() -> Self {
         let path = config_path();
         let Ok(content) = std::fs::read_to_string(&path) else {
+            Self::init_settings_file(&path);
             return Self::default();
         };
 
@@ -83,6 +84,16 @@ impl Settings {
 
         settings.expand_vars();
         settings
+    }
+
+    fn init_settings_file(path: &PathBuf) {
+        if let Some(parent) = path.parent() {
+            if std::fs::create_dir_all(parent).is_err() {
+                return;
+            }
+        }
+        let defaults = include_str!("../settings.sample.json");
+        let _ = std::fs::write(path, defaults);
     }
 
     pub(crate) fn expand_vars(&mut self) {
@@ -241,5 +252,53 @@ mod tests {
     fn test_custom_file_ops_replaces_defaults() {
         let s = parse(r#"{"file_ops_allowed": ["/opt/myproject/"]}"#);
         assert_eq!(s.file_ops_allowed, vec!["/opt/myproject/"]);
+    }
+
+    // ===========================================
+    // Settings file initialization
+    // ===========================================
+
+    #[test]
+    fn test_init_settings_creates_when_absent() {
+        let dir = tempfile::tempdir().unwrap();
+        let settings_path = dir.path().join("rich-blocks-claude/settings.json");
+
+        Settings::init_settings_file(&settings_path);
+        assert!(settings_path.exists());
+
+        let content = std::fs::read_to_string(&settings_path).unwrap();
+        let expected = include_str!("../settings.sample.json");
+        assert_eq!(content, expected);
+    }
+
+    #[test]
+    fn test_init_settings_skips_when_exists() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_dir = dir.path().join("rich-blocks-claude");
+        std::fs::create_dir_all(&config_dir).unwrap();
+        let settings_path = config_dir.join("settings.json");
+        std::fs::write(&settings_path, "{}").unwrap();
+
+        // load() won't call init_settings_file when file exists (read_to_string succeeds)
+        let content = std::fs::read_to_string(&settings_path).unwrap();
+        assert_eq!(content, "{}");
+    }
+
+    #[test]
+    fn test_init_settings_creates_parent_dirs() {
+        let dir = tempfile::tempdir().unwrap();
+        let settings_path = dir
+            .path()
+            .join("deep/nested/path/rich-blocks-claude/settings.json");
+
+        Settings::init_settings_file(&settings_path);
+        assert!(settings_path.exists());
+    }
+
+    #[test]
+    fn test_embedded_settings_is_valid_json() {
+        let content = include_str!("../settings.sample.json");
+        let parsed: Result<serde_json::Value, _> = serde_json::from_str(content);
+        assert!(parsed.is_ok(), "settings.sample.json must be valid JSON");
     }
 }

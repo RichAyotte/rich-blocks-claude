@@ -15,7 +15,6 @@ macro_rules! block {
     }};
 }
 
-mod install;
 mod no_python;
 mod notify_unfocused;
 mod sensitive_files;
@@ -90,14 +89,8 @@ fn main() -> ExitCode {
     if args.len() < 2 {
         eprintln!("Usage: rich-blocks-claude <command>");
         eprintln!("Commands:");
-        eprintln!("  install  Install plugin via Claude Code CLI");
         eprintln!("  bash|write|read|edit|grep|post-sensitive|notify  Hook matchers");
         return ExitCode::from(1);
-    }
-
-    // Handle install subcommand before reading stdin (it runs from a terminal, not hooks)
-    if args[1] == "install" {
-        return install::run();
     }
 
     // Read stdin once
