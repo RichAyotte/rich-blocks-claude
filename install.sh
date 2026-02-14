@@ -49,7 +49,15 @@ fi
 # Register plugin with Claude Code
 printf "\nRegistering plugin...\n"
 if command -v claude >/dev/null 2>&1; then
-	claude plugin marketplace add RichAyotte/claude-plugins
+	unset CLAUDECODE
+	case "$(claude plugin marketplace list --json 2>/dev/null)" in
+	*rich-plugins*)
+		printf "  Marketplace 'rich-plugins' already registered, skipping.\n"
+		;;
+	*)
+		claude plugin marketplace add RichAyotte/claude-plugins
+		;;
+	esac
 	claude plugin install rich-blocks-claude@rich-plugins --scope user
 	printf "  Plugin registered and installed.\n"
 else
