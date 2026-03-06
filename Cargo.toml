@@ -1,6 +1,6 @@
 [package]
 name = "rich-blocks-claude"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 rust-version = "1.87.0"
 description = "Safety and productivity hooks for Claude Code — blocks dangerous commands, protects sensitive files, enforces tool preferences, and provides desktop notifications"
