@@ -154,7 +154,7 @@ pub fn run(input: &HookInput, settings: &Settings) -> ExitCode {
         return code;
     }
 
-    let code = check_file_ops(command, &settings.file_ops_allowed);
+    let code = check_file_ops(command, &input.cwd, &settings.file_ops_allowed);
     if code != ExitCode::from(0) {
         return code;
     }
@@ -554,20 +554,36 @@ fn check_uuoc(cmd: &str) -> ExitCode {
     ExitCode::from(0)
 }
 
-fn check_file_ops(cmd: &str, allowed: &[String]) -> ExitCode {
+fn resolve_path(path: &str, cwd: &str) -> String {
+    let home = crate::home_dir();
+    if path.starts_with('/') {
+        path.to_string()
+    } else if let Some(rest) = path.strip_prefix("~/") {
+        format!("{home}/{rest}")
+    } else if path == "~" {
+        home
+    } else if let Some(rest) = path.strip_prefix("$HOME/") {
+        format!("{home}/{rest}")
+    } else if path == "$HOME" {
+        home
+    } else {
+        format!("{}/{}", cwd.trim_end_matches('/'), path)
+    }
+}
+
+fn check_file_ops(cmd: &str, cwd: &str, allowed: &[String]) -> ExitCode {
     if !RE_FILE_OPS.is_match(cmd) {
         return ExitCode::from(0);
     }
 
     let paths_part = RE_FILE_OPS_STRIP.replace(cmd, "");
-    for path in paths_part
+    for token in paths_part
         .split_whitespace()
         .filter(|p| !p.starts_with('-'))
     {
-        if path.starts_with('.') {
-            continue;
-        }
-        if !allowed.iter().any(|a| path.starts_with(a.as_str())) {
+        let path = token.trim_matches(|c| c == '\'' || c == '"');
+        let resolved = resolve_path(path, cwd);
+        if !allowed.iter().any(|a| resolved.starts_with(a.as_str())) {
             block!(
                 "File operation on '{path}' not allowed. Must be within project or /tmp directory."
             );
@@ -1418,16 +1434,26 @@ mod tests {
     // FILE OPS: check_file_ops
     // =========================================
 
-    fn file_ops_blocked(cmd: &str) -> bool {
+    fn file_ops_blocked_with_cwd(cmd: &str, cwd: &str) -> bool {
         let mut s = Settings::default();
         s.expand_vars();
-        check_file_ops(cmd, &s.file_ops_allowed) == ExitCode::from(2)
+        check_file_ops(cmd, cwd, &s.file_ops_allowed) == ExitCode::from(2)
+    }
+
+    fn file_ops_allowed_with_cwd(cmd: &str, cwd: &str) -> bool {
+        let mut s = Settings::default();
+        s.expand_vars();
+        check_file_ops(cmd, cwd, &s.file_ops_allowed) == ExitCode::from(0)
+    }
+
+    fn file_ops_blocked(cmd: &str) -> bool {
+        let home = std::env::var("HOME").unwrap();
+        file_ops_blocked_with_cwd(cmd, &format!("{home}/Projects/test"))
     }
 
     fn file_ops_allowed(cmd: &str) -> bool {
-        let mut s = Settings::default();
-        s.expand_vars();
-        check_file_ops(cmd, &s.file_ops_allowed) == ExitCode::from(0)
+        let home = std::env::var("HOME").unwrap();
+        file_ops_allowed_with_cwd(cmd, &format!("{home}/Projects/test"))
     }
 
     #[test]
@@ -1465,5 +1491,63 @@ mod tests {
     fn test_file_ops_ignores_non_file_commands() {
         assert!(file_ops_allowed("ls /etc"));
         assert!(file_ops_allowed("echo hello"));
+    }
+
+    #[test]
+    fn test_file_ops_allowed_bare_relative_in_project() {
+        let home = std::env::var("HOME").unwrap();
+        assert!(file_ops_allowed_with_cwd(
+            "rm hyprlandd.conf",
+            &format!("{home}/Projects/foo")
+        ));
+        assert!(file_ops_allowed_with_cwd(
+            "rm foo/bar.txt",
+            &format!("{home}/Projects/test")
+        ));
+    }
+
+    #[test]
+    fn test_file_ops_blocked_bare_relative_outside_project() {
+        assert!(file_ops_blocked_with_cwd("rm hyprlandd.conf", "/etc"));
+        assert!(file_ops_blocked_with_cwd("rm foo/bar.txt", "/var/log"));
+    }
+
+    #[test]
+    fn test_file_ops_allowed_dotslash_in_project() {
+        let home = std::env::var("HOME").unwrap();
+        assert!(file_ops_allowed_with_cwd(
+            "rm ./foo.rs",
+            &format!("{home}/Projects/foo")
+        ));
+    }
+
+    #[test]
+    fn test_file_ops_allowed_tilde_in_allowed_dir() {
+        assert!(file_ops_allowed("rm ~/Projects/foo.txt"));
+    }
+
+    #[test]
+    fn test_file_ops_blocked_tilde_outside_allowed() {
+        assert!(file_ops_blocked("rm ~/.config/something"));
+    }
+
+    #[test]
+    fn test_file_ops_allowed_quoted_paths() {
+        let home = std::env::var("HOME").unwrap();
+        assert!(file_ops_allowed(r#"rm "/tmp/foo.txt""#));
+        assert!(file_ops_allowed_with_cwd(
+            "rm './src/bar.rs'",
+            &format!("{home}/Projects/foo")
+        ));
+    }
+
+    #[test]
+    fn test_file_ops_allowed_dollar_home_in_allowed() {
+        assert!(file_ops_allowed("rm $HOME/Projects/foo.txt"));
+    }
+
+    #[test]
+    fn test_file_ops_blocked_dollar_home_outside() {
+        assert!(file_ops_blocked("rm $HOME/.config/something"));
     }
 }
